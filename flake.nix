@@ -47,10 +47,12 @@
               git
               jq
               nixpkgs-fmt
+              prettier
               jujutsu
               jjui
 
               go
+              koka
             ];
           };
         }
