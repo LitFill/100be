@@ -244,6 +244,9 @@ pub inline fun span(build-tree: () -> <component-builder|e> (), classes: list<st
 pub inline fun strong(build-tree: () -> <component-builder|e> (), classes: list<string> = []): <component-builder|e> ()
   classcomponent("strong", build-tree, classes)
 
+pub inline fun small(build-tree: () -> <component-builder|e> (), classes: list<string> = []): <component-builder|e> ()
+  classcomponent("small", build-tree, classes)
+
 pub inline fun style(build-tree: () -> <stylesheet-builder|e> ()): <component-builder|e> ()
   component("style")
     register-child(InnerHtml(mask<component-builder>{stylesheet(build-tree).show}))

@@ -3,6 +3,7 @@ module main
 import std/os/path
 import std/os/file
 import html/html/html
+import html/html/escape
 
 infixl 1 (.=)
 
@@ -65,113 +66,141 @@ fun main-page () : _ component
       h1
         "URLs in server".text
 
-    main
-      "class"  .= "container"
-      "role"   .= "main"
-      "x-data" .= "urlService()"
-      "x-init" .= "fetchURLs()"
+    with main
+    "class"  .= "container"
+    "role"   .= "main"
+    "x-data" .= r#"{
+        items:         [],
+        loading:       false,
+        search:        "",
+        statusMessage: "Initializing...",
 
-      article
-        form("http://localhost:8080/shorten", "POST")
-          "x-data" .= "{ submitting: false }"
-          "@submit" .= "submitting = true"
+        get filteredItems() {
+          if (!this.search.trim()) return this.items;
+          const query = this.search.toLowerCase();
+          return this.items.filter(item =>
+            item.short.toLowerCase().includes(query) ||
+            item.long.toLowerCase().includes(query)
+          );
+        },
+      }"#.html-escape
+    "x-init" .= r#"
+      loading       = true;
+      statusMessage = "Loading items...";
+      items         = [];
+      try {
+        const response = await fetch("http://localhost:8080/");
+        if (!response.ok)
+          throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        if (!data.length) statusMessage = "No items found.";
+        else {
+          items = data;
+          statusMessage = "";
+        }
+      } catch (error) {
+        statusMessage = `Error loading items: ${error.message}`;
+      } finally {
+        loading = false;
+      }"#.html-escape
 
-          fieldset
-            "role" .= "group"
+    article
+      header
+        strong
+          "Create Short URL".text
+      form("http://localhost:8080/shorten", "POST")
+        "x-data" .= "formService"
+        "@submit.prevent" .= r#"
+              submitting = true;
+              formError = "";
 
-            input("original-url", "url", "")
-              "placeholder" .= "https://example.com/very/long/url"
-              set-bool-attr("required", True)
-            button
-              "type" .= "submit"
-              ":disabled" .= "submitting"
-              "Shorten" .text
+              const body = new URLSearchParams();
+              body.append("original-url", newUrl);
 
-      article
-        input("search", "text", "")
-          "x-model"     .= "search"
-          "placeholder" .= "Filter by short or long URL..."
-          ":disabled"   .= "items.length === 0"
+              try {
+                const response = await fetch("http://localhost:8080/shorten", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                  },
+                  body: body
+                });
 
-        p
-          "x-text" .= "statusMessage"
-          "x-show" .= "statusMessage !== ''"
-          "placeholder" .text
+                if (!response.ok) {
+                  const text = await response.text();
+                  throw new Error(text || `Server error: ${response.status}`);
+                }
+
+                const createdItem = await response.json();
+
+                // Optimistically add to top of list & reset form
+                items.unshift(createdItem);
+                newUrl = "";
+                statusMessage = "";
+              } catch (error) {
+                formError = error.message;
+              } finally {
+                submitting = false;
+              }"#.html-escape
+
+        fieldset
+          "role" .= "group"
+
+          input("original-url", "url", "")
+            "placeholder" .= "https://example.com/very/long/url"
+            "x-model" .= "newUrl"
+            ":disabled" .= "submitting"
+            set-bool-attr("required", True)
+          button
+            "type" .= "submit"
+            ":disabled" .= "submitting"
+            ":busy" .= "submitting"
+            "Shorten" .text
+      small
+        "x-show" .= "formError"
+        "x-text" .= "formError"
+        "style" .= "color: var(--pico-del-color)"
+
+    article
+      input("search", "text", "")
+        "x-model"     .= "search"
+        "placeholder" .= "Filter by short or long URL..."
+        ":disabled"   .= "items.length === 0"
+
       p
-        "x-show" .= "items.length > 0 && filteredItems.length === 0"
-        "No URLs match your search." .text
+        "x-text" .= "statusMessage"
+        "x-show" .= "statusMessage !== ''"
+        "placeholder" .text
+    p
+      "x-show" .= "items.length > 0 && filteredItems.length === 0"
+      "No URLs match your search." .text
 
-      // TODO: a form for submitting a new link to /shorten
+    div(classes=["overflow-auto"])
+      with table
+      "x-show" .= "filteredItems.length > 0"
 
-      div(classes=["overflow-auto"])
-        with table
-        "x-show" .= "filteredItems.length > 0"
+      thead
+        tr
+          th
+            "Short" .text
+          th
+            "Long"  .text
 
-        thead
-          tr
-            th
-              "Short" .text
-            th
-              "Long"  .text
+      tbody
+        with template
+        "x-for" .= "urlMap in filteredItems"
+        ":key"  .= "urlMap.short"
 
-        tbody
-          with template
-          "x-for" .= "urlMap in filteredItems"
-          ":key"  .= "urlMap.short"
-
-          with tr
-          td
-            "x-text" .= "urlMap.short"
-            "placeholder" .text
-          td
-            with "".a
-            ":href"  .= "urlMap.long"
-            "target" .= "_blank"
-            "x-text" .= "urlMap.long"
-            "placeholder" .text
-    init-script ()
-
-fun init-script()
-    val script =
-      r#"function urlService() {
-        return {
-          items:         [],
-          loading:       false,
-          search:        "",
-          statusMessage: "Initializing...",
-
-          get filteredItems() {
-            if (!this.search.trim()) return this.items;
-            const query = this.search.toLowerCase();
-            return this.items.filter(item =>
-              item.short.toLowerCase().includes(query) ||
-              item.long.toLowerCase().includes(query)
-            );
-          },
-
-          async fetchURLs() {
-            this.loading       = true;
-            this.statusMessage = "Loading items...";
-            this.items         = [];
-            try {
-              const response = await fetch("http://localhost:8080/");
-              if (!response.ok)
-                throw new Error(`Server error: ${response.status}`);
-              const data = await response.json();
-              if (!data.length) this.statusMessage = "No items found.";
-              else {
-                this.items = data;
-                this.statusMessage = "";
-              }
-            } catch (error) {
-              this.statusMessage = `Error loading items: ${error.message}`;
-            } finally {
-              this.loading = false;
-            }
-          },
-        };
-      }"#
-    text/script(script)
+        with tr
+        td
+          "x-text" .= "urlMap.short"
+          "placeholder" .text
+        td
+          with "".a
+          ":href"  .= "urlMap.long"
+          "target" .= "_blank"
+          "x-text" .= "urlMap.long"
+          "placeholder" .text
 
 fun add-html-header (html-str)
     val header-str =
