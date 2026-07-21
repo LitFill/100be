@@ -14,66 +14,56 @@
     ></script>
     <!-- <link href="css/style.css" rel="stylesheet"> -->
     <style>
-      .bg-red {
-        background-color: red;
-      }
     </style>
   </head>
   <body>
-    <main class="container">
-      <h1 x-data="{ message: 'I ♥ Alpine' }" x-text="message"></h1>
+    <main class="container" x-data="urlService()" x-init="fetchURLs()">
+      <h1>URLs in server</h1>
 
-      <article class="container">
-        <div x-data="{ count: 0 }">
-          <button x-on:click="count++">inc</button>
-          <span x-text="count * 20"></span>
-        </div>
-      </article>
+      <button @click="fetchURLs()" :disabled="loading">Fetch now</button>
+      <p x-text="statusMessage"></p>
 
-      <article class="container">
-        <div x-data="{ open: false }">
-          <button @click="open = !open">Toggle</button>
-          <div x-show="open" @click.outside="open = false">Contents...</div>
-        </div>
-      </article>
-
-      <article class="container">
-        <button
-          x-data="{ red: false }"
-          :class="red? 'bg-red': ''"
-          @click="red = !red"
-        >
-          Toggle Red
-        </button>
-      </article>
-
-      <article class="container">
-        <div x-data="{ open: true }">
-          <button @click="open=!open">toggle</button>
-          <span :class="{ 'hidden': !open }" x-text="open">...</span>
-        </div>
-      </article>
-
-      <article class="container">
-        <div
-          x-data="{
-            search: '',
-            items: ['foo', 'bar', 'baz'],
-            get filteredItems() {
-              return this.items.filter(i =>
-                i.startsWith(this.search)
-              )
-            }
-          }"
-        >
-          <input x-model="search" placeholder="Search..." />
-          <ul>
-            <template x-for="item in filteredItems" :key="item">
-              <li x-text="item"></li>
-            </template>
-          </ul>
-        </div>
-      </article>
+      <table s-show="items.length>0">
+        <thead>
+        <tr>
+          <th>Short</th><th>Long</th></tr>
+        </thead>
+        <tbody>
+          <template x-for="urlMap in items" :key="urlMap.short">
+            <tr>
+              <td x-text="urlMap.short"></td>
+              <td>
+                <a :href="urlMap.long" x-text="urlMap.long" target="_blank"></a>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
     </main>
+    <script>
+    function urlService() {
+      return {
+        items: [], loading: false,
+        statusMessage: 'Loading items...'
+
+        async fetchURLs() {
+          this.loading=true
+          this.statusMessage='Loading items...'
+            this.items=[]
+        try{
+        const response=await fetch('http://localhost:8080/')
+        if(!response.ok)throw new Error(`Server error: ${response.status}`)
+        const data=await response.json()
+        if(!data.length) this.statusMessage='No items found.'
+        else{
+        this.items=data
+                this.statusMessage=''
+      }
+    }catch(error)this.statusMessage=`Error loading items: ${error.message}`
+    finally{this.loading=false}
+        }
+      }
+    }
+    </script>
   </body>
 </html>

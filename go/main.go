@@ -61,7 +61,7 @@ func (s *SafeUrlMap) Get(short ShortUrl) (LongUrl, bool) {
 	return long, ok
 }
 
-func (s *SafeUrlMap) handleShorten() func(w http.ResponseWriter, r *http.Request) {
+func (s *SafeUrlMap) handleShorten() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		originalUrl := r.FormValue("original-url")
 		if originalUrl == "" {
@@ -85,7 +85,7 @@ func (s *SafeUrlMap) handleShorten() func(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (s *SafeUrlMap) handleGet() func(w http.ResponseWriter, r *http.Request) {
+func (s *SafeUrlMap) handleGet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortUrl := r.PathValue("short")
 		longUrl, ok := s.Get(shortUrl)
@@ -98,7 +98,7 @@ func (s *SafeUrlMap) handleGet() func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *SafeUrlMap) handleList() func(w http.ResponseWriter, r *http.Request) {
+func (s *SafeUrlMap) handleList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		type Ret struct {
 			Short ShortUrl `json:"short"`
@@ -139,6 +139,25 @@ func loadMap(path string) (map[ShortUrl]LongUrl, error) {
 	return m, nil
 }
 
+// this is some kind of middleware
+func withCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		hs := map[string]string {
+			"Access-Control-Allow-Origin": "http://localhost:3000",
+			"Access-Control-Allow-Methods": "GET, PPOST, DELETE, PUT, PATCH, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type, Authorization",
+		}
+		for key, val := range hs {
+			w.Header().Set(key, val)
+		}
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next(w, r)
+	}
+}
+
 func main() {
 	const persistPath = "urlmap.txt"
 
@@ -152,10 +171,11 @@ func main() {
 		persistPath: persistPath,
 	}
 
-	http.HandleFunc("POST /shorten", urlStorage.handleShorten())
-	http.HandleFunc("GET /{short}", urlStorage.handleGet())
-	http.HandleFunc("GET /", urlStorage.handleList())
+	http.HandleFunc("POST /shorten", withCORS(urlStorage.handleShorten()))
+	http.HandleFunc("GET /{short}", withCORS(urlStorage.handleGet()))
+	http.HandleFunc("GET /", withCORS(urlStorage.handleList()))
 
 	log.Println("Server running on :8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("Clossing server...")
 }
