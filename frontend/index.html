@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Front end for 100 backends</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.violet.min.css"
+    />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <!-- <link href="css/style.css" rel="stylesheet"> -->
+    <style></style>
+  </head>
+  <body>
+    <main class="container" x-data="urlService()" x-init="fetchURLs()">
+      <h1>URLs in server</h1>
+
+      <button @click="fetchURLs()" :disabled="loading">Fetch now</button>
+      <p x-text="statusMessage"></p>
+
+      <table s-show="items.length>0">
+        <thead>
+          <tr>
+            <th>Short</th>
+            <th>Long</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="urlMap in items" :key="urlMap.short">
+            <tr>
+              <td x-text="urlMap.short"></td>
+              <td>
+                <a :href="urlMap.long" x-text="urlMap.long" target="_blank"></a>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </main>
+    <script>
+      function urlService() {
+        return {
+          items: [],
+          loading: false,
+          statusMessage: "Loading items...",
+
+          async fetchURLs() {
+            this.loading = true;
+            this.statusMessage = "Loading items...";
+            this.items = [];
+            try {
+              const response = await fetch("http://localhost:8080/");
+              if (!response.ok)
+                throw new Error(`Server error: ${response.status}`);
+              const data = await response.json();
+              if (!data.length) this.statusMessage = "No items found.";
+              else {
+                this.items = data;
+                this.statusMessage = "";
+              }
+            } catch (error) {
+              this.statusMessage = `Error loading items: ${error.message}`;
+            } finally {
+              this.loading = false;
+            }
+          },
+        };
+      }
+    </script>
+  </body>
+</html>

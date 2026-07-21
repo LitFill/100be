@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Front end for 100 backends</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/hyperscript.org@0.9.93/dist/_hyperscript.min.js"
+      integrity="sha384-/6HsqTiz02YfFBUhzTwlH/yxe68DhfnkdHiWytM3nxAzs/yvG+3FZY0f4KLnNoov"
+      crossorigin="anonymous"
+    ></script>
+    <!-- <link href="css/style.css" rel="stylesheet"> -->
+    <style>
+      .red {
+        background-color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h2>Hello HTML!</h2>
+      <button _="on click put 'Hello World' into me">Click me!</button>
+      <button _="on click toggle .red on me">Click me for red!</button>
+      <button _="on click set x to 42 then log x">Click me to log x!</button>
+      <div class="counter" _="init set ^count to 0">
+        <button _="on click increment ^count">+1</button>
+        <output _="on click put ^count into me">o</output>
+      </div>
+      <div class="counter">
+        <button
+          _="set :x to 0
+                   on click or mouseenter increment :x then put it into the next <output/>"
+        >
+          +1
+        </button>
+        <output>--</output>
+      </div>
+      <div class="counter">
+        <button
+          data-count="0"
+          _="on click increment @data-count then put it into the next <output/>"
+        >
+          Click me!
+        </button>
+        <output>--</output>
+      </div>
+      <div
+        _="on mouseenter tell <button/> in me
+              add @disabled
+              set your title to 'Please wait...'"
+      >
+        <button>Click me!</button>
+        <button>Click me!</button>
+        <button>Click me!</button>
+        <button>Click me!</button>
+      </div>
+      <!-- this ↓ doesnt work. parent is not real i guess -->
+      <div data-count="0">
+        <button
+          _="on click
+                increment (@data-count of parent)
+             if (parent's @data-count) as Int is greater than 4
+                add @disabled to me"
+        >
+          +1
+        </button>
+      </div>
+    </main>
+    <script type="text/hyperscript">
+      on mousedown
+          log "A mouse down happened: ", event
+      end
+    </script>
+  </body>
+</html>

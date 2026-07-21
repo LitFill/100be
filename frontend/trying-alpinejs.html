@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Front end for 100 backends</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <!-- <link href="css/style.css" rel="stylesheet"> -->
+    <style>
+      .bg-red {
+        background-color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h1 x-data="{ message: 'I ♥ Alpine' }" x-text="message"></h1>
+
+      <article class="container">
+        <div x-data="{ count: 0 }">
+          <button x-on:click="count++">inc</button>
+          <span x-text="count * 20"></span>
+        </div>
+      </article>
+
+      <article class="container">
+        <div x-data="{ open: false }">
+          <button @click="open = !open">Toggle</button>
+          <div x-show="open" @click.outside="open = false">Contents...</div>
+        </div>
+      </article>
+
+      <article class="container">
+        <button
+          x-data="{ red: false }"
+          :class="red? 'bg-red': ''"
+          @click="red = !red"
+        >
+          Toggle Red
+        </button>
+      </article>
+
+      <article class="container">
+        <div x-data="{ open: true }">
+          <button @click="open=!open">toggle</button>
+          <span :class="{ 'hidden': !open }" x-text="open">...</span>
+        </div>
+      </article>
+
+      <article class="container">
+        <div
+          x-data="{
+            search: '',
+            items: ['foo', 'bar', 'baz'],
+            get filteredItems() {
+              return this.items.filter(i =>
+                i.startsWith(this.search)
+              )
+            }
+          }"
+        >
+          <input x-model="search" placeholder="Search..." />
+          <ul>
+            <template x-for="item in filteredItems" :key="item">
+              <li x-text="item"></li>
+            </template>
+          </ul>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>
