@@ -105,11 +105,11 @@ fun main-page () : _ component
       }"#.html-escape
 
     article
+      "x-data" .= "{ submitting: false, formError: '', newUrl: '' }"
       header
         strong
           "Create Short URL".text
       form("http://localhost:8080/shorten", "POST")
-        "x-data" .= "formService"
         "@submit.prevent" .= r#"
               submitting = true;
               formError = "";
@@ -182,9 +182,11 @@ fun main-page () : _ component
       thead
         tr
           th
-            "Short" .text
+            "Short"  .text
           th
-            "Long"  .text
+            "Long"   .text
+          th
+            "action" .text
 
       tbody
         with template
@@ -201,6 +203,18 @@ fun main-page () : _ component
           "target" .= "_blank"
           "x-text" .= "urlMap.long"
           "placeholder" .text
+        td
+          button
+            "@click" .= r#"
+              if (!confirm(`Delete /${urlMap.short}?`)) return;
+              const response = await fetch(`http://localhost:8080/${urlMap.short}`, {
+                method: "DELETE"
+              });
+              items = items.filter(item => item.short !== urlMap.short);
+              if (items.length === 0) statusMessage = "No items found.";
+              "#.html-escape
+            "delete" .text
+
 
 fun add-html-header (html-str)
     val header-str =

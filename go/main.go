@@ -41,12 +41,7 @@ type SafeUrlMap struct {
 	persistPath string
 }
 
-func (s *SafeUrlMap) Set(short ShortUrl, long LongUrl) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.m[short] = long
-
+func (s *SafeUrlMap) Persist() error {
 	var sb strings.Builder
 	for key, val := range s.m {
 		sb.WriteString(fmt.Sprintf("%s => %s\n", key, val))
@@ -54,11 +49,29 @@ func (s *SafeUrlMap) Set(short ShortUrl, long LongUrl) error {
 	return os.WriteFile(s.persistPath, []byte(sb.String()), 0600)
 }
 
+func (s *SafeUrlMap) Set(short ShortUrl, long LongUrl) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.m[short] = long
+
+	return s.Persist()
+}
+
 func (s *SafeUrlMap) Get(short ShortUrl) (LongUrl, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	long, ok := s.m[short]
 	return long, ok
+}
+
+func (s *SafeUrlMap) Delete(short ShortUrl) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.m, short)
+
+	return s.Persist()
 }
 
 func (s *SafeUrlMap) handleShorten() http.HandlerFunc {
@@ -113,6 +126,20 @@ func (s *SafeUrlMap) handleList() http.HandlerFunc {
 	}
 }
 
+func (s *SafeUrlMap) handleDelete() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		shortUrl := r.PathValue("short")
+		if shortUrl == "" {
+			http.Error(w, "missing 'short' parameter", http.StatusBadRequest)
+			return
+		}
+		if err := s.Delete(shortUrl); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func loadMap(path string) (map[ShortUrl]LongUrl, error) {
 	m := make(map[ShortUrl]LongUrl)
 
@@ -140,11 +167,11 @@ func loadMap(path string) (map[ShortUrl]LongUrl, error) {
 }
 
 // this is some kind of middleware
-func withCORS(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		hs := map[string]string {
-			"Access-Control-Allow-Origin": "http://localhost:3000",
-			"Access-Control-Allow-Methods": "GET, PPOST, DELETE, PUT, PATCH, OPTIONS",
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hs := map[string]string{
+			"Access-Control-Allow-Origin":  "http://localhost:3000",
+			"Access-Control-Allow-Methods": "GET, POST, DELETE, PUT, PATCH, OPTIONS",
 			"Access-Control-Allow-Headers": "Content-Type, Authorization",
 		}
 		for key, val := range hs {
@@ -154,8 +181,8 @@ func withCORS(next http.HandlerFunc) http.HandlerFunc {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		next(w, r)
-	}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -171,11 +198,18 @@ func main() {
 		persistPath: persistPath,
 	}
 
-	http.HandleFunc("POST /shorten", withCORS(urlStorage.handleShorten()))
-	http.HandleFunc("GET /{short}", withCORS(urlStorage.handleGet()))
-	http.HandleFunc("GET /", withCORS(urlStorage.handleList()))
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("POST    /shorten", urlStorage.handleShorten())
+	mux.HandleFunc("DELETE  /{short}", urlStorage.handleDelete())
+	mux.HandleFunc("GET     /{short}", urlStorage.handleGet())
+	mux.HandleFunc("GET     /",        urlStorage.handleList())
+
+	handlerWithCORS := withCORS(mux)
 
 	log.Println("Server running on :8080...")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	if err := http.ListenAndServe(":8080", handlerWithCORS); err != nil {
+		log.Fatal(err)
+	}
 	log.Println("Clossing server...")
 }
